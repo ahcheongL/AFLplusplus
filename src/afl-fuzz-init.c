@@ -2236,6 +2236,10 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
   ck_free(fn);
 
+  fn = alloc_printf("%s/log", afl->out_dir);
+  if (unlink(fn) && errno != ENOENT) { goto dir_cleanup_failed; }
+  ck_free(fn);
+
   OKF("Output dir cleanup successful.");
 
   /* Wow... is that all? If yes, celebrate! */
@@ -2363,6 +2367,11 @@ void setup_dirs_fds(afl_state_t *afl) {
     close(fd);
 
   }
+
+  tmp = alloc_printf("%s/log", afl->out_dir);
+  afl->log_file = fopen(tmp, "w");
+  if (!afl->log_file) { PFATAL("Unable to create '%s'", tmp); }
+  ck_free(tmp);
 
   /* Queue directory for any starting & discovered paths. */
 

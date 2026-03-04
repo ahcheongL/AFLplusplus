@@ -987,6 +987,11 @@ void afl_state_deinit(afl_state_t *afl) {
 
   ck_free(afl->afl_env.afl_forksrv_supl_gids);
 
+  if (afl->log_file) {
+    fclose(afl->log_file);
+    afl->log_file = NULL;
+  }
+
   list_remove(&afl_states, afl);
 
 }

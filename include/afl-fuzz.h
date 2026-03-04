@@ -966,6 +966,8 @@ typedef struct afl_state {
   dynamic_shared_access_t
       *ijon_shared_access;         /* IJON shared access for dynamic offset */
 
+  FILE * log_file;
+
 } afl_state_t;
 
 struct custom_mutator {
