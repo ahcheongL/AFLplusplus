@@ -2460,11 +2460,15 @@ void setup_dirs_fds(afl_state_t *afl) {
   if (afl->shm.ctx_mode) {
 
     tmp = alloc_printf("%s/context_corpus", afl->out_dir);
-    /* Tolerate an existing dir on an in-place resume, the same way .synced/ and
-       the out dir itself do: the resume path does not delete this directory, so
-       a plain mkdir would fail with EEXIST and abort every resumed session. */
-    if (mkdir(tmp, afl->dir_perm) &&
-        (!afl->in_place_resume || errno != EEXIST)) {
+    /* Tolerate an existing dir on ANY resume/reuse path. Neither the in-place
+       resume nor the "output dir exists, deleting old session data" re-init path
+       removes context_corpus/, so a plain mkdir fails with EEXIST and aborts.
+       The in_place_resume-only guard here missed the re-init case: a unit driver
+       whose first run crashes on a seed exits without a fastresume.bin, so
+       AFL_AUTORESUME cannot fast-resume and falls into re-init with
+       in_place_resume == 0 -- which aborted every subsequent turn (queue wiped to
+       0, session dead). An existing context_corpus/ is never fatal; reuse it. */
+    if (mkdir(tmp, afl->dir_perm) && errno != EEXIST) {
 
       PFATAL("Unable to create '%s'", tmp);
 
