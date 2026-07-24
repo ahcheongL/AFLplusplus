@@ -266,6 +266,40 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
 }
 
+/* focalpp: novelty in the context-value second map. The unit driver writes a
+   per-field value-profile into afl->shm.ctx_map each exec; here we bucket each
+   field's hit count with the same class table as edge coverage and diff against
+   virgin_ctx, updating it. Returns 1 if any new value-bucket appeared. Runs only
+   when the edge map found nothing, so the byte-wise scan over the fixed
+   CTX_MAP_SIZE map is off the hot path. */
+static u8 has_new_bits_ctx(afl_state_t *afl) {
+
+  u8 *cur = afl->shm.ctx_map;
+  u8 *vir = afl->virgin_ctx;
+  u8  ret = 0;
+
+  if (unlikely(!cur || !vir)) { return 0; }
+
+  for (u32 i = 0; i < CTX_MAP_SIZE; ++i) {
+
+    if (unlikely(cur[i])) {
+
+      u8 bucket = count_class_lookup8[cur[i]];
+      if (unlikely(bucket & vir[i])) {
+
+        vir[i] &= ~bucket;
+        ret = 1;
+
+      }
+
+    }
+
+  }
+
+  return ret;
+
+}
+
 /* A combination of classify_counts and has_new_bits. If 0 is returned, then the
  * trace bits are kept as-is. Otherwise, the trace bits are overwritten with
  * classified values.
@@ -740,6 +774,25 @@ u8 __attribute__((hot)) save_if_interesting(afl_state_t *afl, void *mem,
     if (likely(!new_bits)) {
 
       if (san_fault == FSRV_RUN_OK) {
+
+        /* focalpp: the edge map found nothing, but harvest this input if it is
+           novel in the context-value map. Written to context_corpus/ for the
+           model, NOT add_to_queue'd -- scheduling stays edge-guided. */
+        if (unlikely(afl->shm.ctx_mode) && has_new_bits_ctx(afl)) {
+
+          u8 *ctx_fn = alloc_printf("%s/context_corpus/id:%06u", afl->out_dir,
+                                    afl->ctx_corpus_count++);
+          s32 ctx_fd = permissive_create(afl, ctx_fn);
+          if (likely(ctx_fd >= 0)) {
+
+            ck_write(ctx_fd, mem, len, ctx_fn);
+            close(ctx_fd);
+
+          }
+
+          ck_free(ctx_fn);
+
+        }
 
         if (unlikely(afl->crash_mode)) { ++afl->total_crashes; }
         return 0;

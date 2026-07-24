@@ -133,8 +133,10 @@ void afl_shm_deinit(sharedmem_t *shm) {
 #else
   shmctl(shm->shm_id, IPC_RMID, NULL);
   if (shm->cmplog_mode) { shmctl(shm->cmplog_shm_id, IPC_RMID, NULL); }
+  if (shm->ctx_mode) { shmctl(shm->ctx_shm_id, IPC_RMID, NULL); }
 #endif
 
+  shm->ctx_map = NULL;
   shm->map = NULL;
   shm->child_sync = NULL;
   shm->child_sync_offset = 0;
@@ -393,6 +395,40 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
+  /* focalpp: context-value second map (see config.h). Same SysV pattern as
+     cmplog, but a plain CTX_MAP_SIZE byte map. */
+  if (shm->ctx_mode) {
+
+    shm->ctx_shm_id =
+        shmget(IPC_PRIVATE, CTX_MAP_SIZE, IPC_CREAT | IPC_EXCL | permission);
+
+    if (shm->ctx_shm_id < 0) {
+
+      shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
+      if (shm->cmplog_mode) shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);
+      PFATAL("shmget() failed, try running afl-system-config");
+
+    }
+
+    if (gid != -1) {
+
+      if (shmctl(shm->ctx_shm_id, IPC_STAT, &shmid_ds) == -1) {
+
+        PFATAL("shmctl(IPC_STAT) failed");
+
+      }
+
+      shmid_ds.shm_perm.gid = (gid_t)gid;
+      if (shmctl(shm->ctx_shm_id, IPC_SET, &shmid_ds) == -1) {
+
+        PFATAL("shmctl(IPC_SET) failed");
+
+      }
+
+    }
+
+  }
+
   if (!non_instrumented_mode) {
 
     shm_str = alloc_printf("%d", shm->shm_id);
@@ -413,6 +449,16 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
     shm_str = alloc_printf("%d", shm->cmplog_shm_id);
 
     setenv(CMPLOG_SHM_ENV_VAR, shm_str, 1);
+
+    ck_free(shm_str);
+
+  }
+
+  if (shm->ctx_mode && !non_instrumented_mode) {
+
+    shm_str = alloc_printf("%d", shm->ctx_shm_id);
+
+    setenv(CTX_SHM_ENV_VAR, shm_str, 1);
 
     ck_free(shm_str);
 
@@ -447,6 +493,24 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
       PFATAL("shmat() failed");
 
     }
+
+  }
+
+  if (shm->ctx_mode) {
+
+    shm->ctx_map = shmat(shm->ctx_shm_id, NULL, 0);
+
+    if (shm->ctx_map == (void *)-1 || !shm->ctx_map) {
+
+      shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
+      if (shm->cmplog_mode) shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);
+      shmctl(shm->ctx_shm_id, IPC_RMID, NULL);  // do not leak shmem
+
+      PFATAL("shmat() failed");
+
+    }
+
+    memset(shm->ctx_map, 0, CTX_MAP_SIZE);
 
   }
 

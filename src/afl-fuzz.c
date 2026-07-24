@@ -2229,6 +2229,12 @@ void afl_check_environment(afl_state_t *afl) {
 
 void afl_setup_environment(afl_state_t *afl) {
 
+  /* focalpp: enable the context-value second map when requested, BEFORE
+     setup_dirs_fds so the context_corpus/ dir is created. Gated so a normal
+     campaign is unaffected; the unit driver self-attaches via CTX_SHM_ENV_VAR,
+     needing no separate forkserver/binary. */
+  if (getenv("AFL_CONTEXT_MAP")) { afl->shm.ctx_mode = 1; }
+
   setup_dirs_fds(afl);
 
   #ifdef HAVE_AFFINITY
@@ -3257,6 +3263,9 @@ void afl_load_seeds(afl_state_t *afl) {
 
     memset(afl->virgin_tmout, 255, afl->map_size);
     memset(afl->virgin_crash, 255, afl->map_size);
+    /* focalpp: context-value virgin map, fixed size, 0xff = value-bucket
+       never seen. */
+    if (afl->virgin_ctx) { memset(afl->virgin_ctx, 255, CTX_MAP_SIZE); }
 
     if (likely(!afl->afl_env.afl_no_startup_calibration)) {
 

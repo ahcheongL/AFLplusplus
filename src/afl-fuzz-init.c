@@ -2455,6 +2455,58 @@ void setup_dirs_fds(afl_state_t *afl) {
   if (mkdir(tmp, afl->dir_perm)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
 
+  /* focalpp: context-value-novel inputs harvested for the model, kept out of
+     the scheduling queue. Only created when the second map is enabled. */
+  if (afl->shm.ctx_mode) {
+
+    tmp = alloc_printf("%s/context_corpus", afl->out_dir);
+    /* Tolerate an existing dir on an in-place resume, the same way .synced/ and
+       the out dir itself do: the resume path does not delete this directory, so
+       a plain mkdir would fail with EEXIST and abort every resumed session. */
+    if (mkdir(tmp, afl->dir_perm) &&
+        (!afl->in_place_resume || errno != EEXIST)) {
+
+      PFATAL("Unable to create '%s'", tmp);
+
+    }
+
+    /* Continue numbering past the highest id already present. The counter is
+       part of the file name and permissive_create() is O_EXCL, so a resumed
+       session that restarted numbering would abort the moment it tried to save.
+       It has to be max(id)+1 rather than a file count: the ids are sparse (the
+       counter advances on attempts, not just on saves), so counting files lands
+       on an id that already exists. */
+    if (afl->in_place_resume) {
+
+      DIR           *cd = opendir(tmp);
+      struct dirent *cde;
+      u32            highest = 0;
+
+      if (cd) {
+
+        while ((cde = readdir(cd))) {
+
+          if (!strncmp(cde->d_name, "id:", 3)) {
+
+            u32 id = (u32)strtoul(cde->d_name + 3, NULL, 10);
+            if (id >= highest) { highest = id + 1; }
+
+          }
+
+        }
+
+        closedir(cd);
+
+      }
+
+      afl->ctx_corpus_count = highest;
+
+    }
+
+    ck_free(tmp);
+
+  }
+
   /* Generally useful file descriptors. */
 
   afl->fsrv.dev_null_fd = open("/dev/null", O_RDWR);

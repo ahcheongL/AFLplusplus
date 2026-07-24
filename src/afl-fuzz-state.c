@@ -85,6 +85,15 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->virgin_bits = ck_alloc(map_size);
   afl->virgin_tmout = ck_alloc(map_size);
   afl->virgin_crash = ck_alloc(map_size);
+  /* focalpp: fixed-size context-value virgin map, independent of the target's
+     edge map size, so it never needs the ck_realloc the others get on resize.
+     Initialised to 0xff (= value-bucket never seen) right here rather than only
+     alongside virgin_bits later: that later memset sits in the non-fast-resume
+     branch, so on a fast resume it never ran and this map stayed all-zero --
+     i.e. "everything already seen" -- and the context map silently harvested
+     nothing for the rest of the session. */
+  afl->virgin_ctx = ck_alloc(CTX_MAP_SIZE);
+  memset(afl->virgin_ctx, 255, CTX_MAP_SIZE);
   afl->var_bytes = ck_alloc(map_size);
   afl->top_rated = ck_alloc(map_size * sizeof(void *));
   afl->clean_trace = ck_alloc(map_size);

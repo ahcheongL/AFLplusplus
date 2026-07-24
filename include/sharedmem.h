@@ -44,10 +44,13 @@ typedef struct sharedmem {
   char g_shm_file_path[L_tmpnam];
   int  cmplog_g_shm_fd;
   char cmplog_g_shm_file_path[L_tmpnam];
+  int  ctx_g_shm_fd;
+  char ctx_g_shm_file_path[L_tmpnam];
 /* ========================================= */
 #else
   s32 shm_id;                          /* ID of the SHM region              */
   s32 cmplog_shm_id;
+  s32 ctx_shm_id;                      /* context-value map (focalpp)       */
 #endif
 
   u8 *map;                                          /* shared memory region */
@@ -64,6 +67,9 @@ typedef struct sharedmem {
   int             sanfuzz_mode;
   int             shmemfuzz_mode;
   struct cmp_map *cmp_map;
+
+  int             ctx_mode;    /* focalpp: context-value second map enabled  */
+  u8             *ctx_map;     /* fuzzer-side pointer to the shared ctx map   */
 
 } sharedmem_t;
 

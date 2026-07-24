@@ -558,6 +558,14 @@ We add 4 byte for one u32 length field. */
 
 #define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
 
+/* Context-value map (focalpp cross-level fuzzing). A second feedback map the
+   unit driver writes a per-field value-profile into, so AFL keeps
+   context-novel inputs (written to context_corpus/, not scheduled). Gated by
+   ctx_mode; the driver self-attaches via this env var. CTX_MAP_SIZE must stay
+   in sync with driver_probes.hpp. */
+#define CTX_SHM_ENV_VAR "__AFL_CTX_SHM_ID"
+#define CTX_MAP_SIZE (65536U)
+
 /* ASAN SHM ID */
 #define AFL_ASAN_FUZZ_SHM_ENV_VAR "__AFL_ASAN_SHM_ID"
 
