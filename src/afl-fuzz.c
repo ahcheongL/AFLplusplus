@@ -365,8 +365,8 @@ static void usage(u8 *argv0, int more_help) {
       "                  see docs/fuzzing_in_depth.md#c-using-multiple-cores\n"
       "                  for effective recommendations for parallel fuzzing.\n"
       "  -F path       - sync to a foreign fuzzer queue directory (requires "
-      "-M, can\n"
-      "                  be specified up to %u times)\n"
+      "-M or -S,\n"
+      "                  can be specified up to %u times)\n"
       "  -z            - skip the enhanced deterministic fuzzing\n"
       "                  (note that the old -d and -D flags are ignored.)\n"
       "  -T text       - text banner to show on the screen\n"
@@ -1149,11 +1149,11 @@ void afl_parse_commandline(afl_state_t *afl, int argc, char **argv) {
       case 'F':                                         /* foreign sync dir */
 
         if (!optarg) { FATAL("Missing path for -F"); }
-        if (!afl->is_main_node) {
+        if (!afl->is_main_node && !afl->is_secondary_node) {
 
           FATAL(
-              "Option -F can only be specified after the -M option for the "
-              "main fuzzer of a fuzzing campaign");
+              "Option -F can only be specified after the -M or -S option for a "
+              "node of a fuzzing campaign");
 
         }
 
