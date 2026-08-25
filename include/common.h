@@ -158,6 +158,20 @@ s32 create_file(u8 *fn, mode_t perm);
 void *afl_memmem(const void *haystack, size_t haystacklen, const void *needle,
                  size_t needlelen);
 
+/* Local to this fork: rate limit for the progress lines that are only printed
+   when stdout is not a tty ("Fuzzing test case #N", "Entering queue cycle N").
+   Both are per queue entry / per queue cycle, and nothing bounds how many of
+   those a run gets through, so the log they land in has no bound either.
+   Measured: 306 bytes a line and 1.4-7.9 KB/s per instance on six of our runs,
+   and a campaign main with a small queue re-entered the cycle 23 times a second
+   for 1.1 KB/s of cycle lines alone. What a run is judged on is in fuzzer_stats
+   and plot_data, which are bounded; these lines only show it is alive.
+
+   Returns 1 if at least AFL_LOG_INTERVAL_MS (default 10000) has passed since
+   *last_ms, and stamps *last_ms. Each call site owns its own *last_ms so one
+   cannot starve the other. AFL_LOG_INTERVAL_MS=0 restores upstream behaviour. */
+u8 afl_log_due(u64 *last_ms);
+
 #ifdef __linux__
 /* Nyx helper functions to create and remove tmp workdirs */
 char *create_nyx_tmp_workdir(void);

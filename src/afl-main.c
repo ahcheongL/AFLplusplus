@@ -53,7 +53,11 @@ static inline void afl_advance_queue_cycle(afl_state_t *afl) {
   }
 
   ++afl->queue_cycle;
-  if (afl->afl_env.afl_no_ui) {
+  /* Rate-limited; see afl_log_due() in common.h. A campaign main with a small
+     queue re-entered the cycle 23 times a second, measured, so this line alone
+     was 1.1 KB/s. The cycle count is in fuzzer_stats either way. */
+  static u64 last_cycle_log_ms = 0;
+  if (afl->afl_env.afl_no_ui && afl_log_due(&last_cycle_log_ms)) {
 
     ACTF("Entering queue cycle %llu\n", afl->queue_cycle);
 

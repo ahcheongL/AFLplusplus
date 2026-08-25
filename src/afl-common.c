@@ -1075,6 +1075,30 @@ inline u64 get_cur_time(void) {
 
 }
 
+/* Rate limit for the not-on-a-tty progress lines. See common.h. */
+
+u8 afl_log_due(u64 *last_ms) {
+
+  static u64 every_ms = (u64)-1;  /* not yet read from the environment */
+
+  if (unlikely(every_ms == (u64)-1)) {
+
+    char *e = getenv("AFL_LOG_INTERVAL_MS");
+    every_ms = e ? strtoull(e, NULL, 10) : 10000;
+
+  }
+
+  if (!every_ms) { return 1; }
+
+  u64 now_ms = get_cur_time();
+  /* *last_ms == 0 only before the first line, which always goes out: it carries
+     the queue size and coverage the run started from. */
+  if (*last_ms && now_ms - *last_ms < every_ms) { return 0; }
+  *last_ms = now_ms;
+  return 1;
+
+}
+
 /* Get unix time in microseconds */
 
 inline u64 get_cur_time_us(void) {

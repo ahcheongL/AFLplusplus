@@ -411,7 +411,9 @@ u8 fuzz_one(afl_state_t *afl) {
 
 #endif
 
-  if (likely(afl->not_on_tty)) {
+  /* Rate-limited; see afl_log_due() in common.h. */
+  static u64 last_case_log_ms = 0;
+  if (likely(afl->not_on_tty) && afl_log_due(&last_case_log_ms)) {
 
     u8 time_tmp[64];
 
